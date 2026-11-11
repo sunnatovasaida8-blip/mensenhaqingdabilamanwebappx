@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Xaker pro X ZENTROX</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  /* Layout: butun ekranli terminal. Tepada brend, o'rtada log, pastda kiritish / barmoq izi / taymer. */
+  :root {
+    --bg: #050706;
+    --panel: #0b100d;
+    --line: #14331f;
+    --fg: #b9f5cb;
+    --dim: #4f8f66;
+    --term: #4dff88;
+    --warn: #ffd166;
+    --bad: #ff5a4d;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); }
+  body { font: 14px/1.5 var(--mono); overflow: hidden; }
+  #app {
+    height: 100%; display: flex; flex-direction: column; gap: 12px; max-width: 760px; margin: 0 auto;
+    padding: max(14px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 10px; padding-left: 56px; }
+  .brand { font: 800 clamp(18px, 5vw, 24px)/1 var(--display); letter-spacing: -.01em; color: var(--term); }
+  .brand b { color: #fff; }
+  .ver { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+
+  #ghost { display: flex; justify-content: center; flex: none; animation: flick 7s infinite; }
+  #ghost[hidden] { display: none !important; }
+  #ghost svg { height: clamp(96px, 17vh, 150px); width: auto; filter: drop-shadow(0 0 16px rgba(77, 255, 136, .22)); }
+  #ghostHead { transform-origin: 100px 140px; animation: sway 4.2s ease-in-out infinite; }
+  #ghost .eyes ellipse { fill: var(--term); filter: drop-shadow(0 0 4px var(--term)); transform-origin: center; transform-box: fill-box; animation: blink 5s infinite; }
+  #ghost .voice rect { fill: var(--term); opacity: 0; transform-origin: center; transform-box: fill-box; transform: scaleY(.2); }
+  #ghost.talk #ghostHead { animation: talk .38s ease-in-out infinite; }
+  #ghost.talk .voice rect { opacity: .9; animation: bars .3s ease-in-out infinite alternate; }
+  #ghost.talk .voice rect:nth-child(2) { animation-delay: .07s; }
+  #ghost.talk .voice rect:nth-child(3) { animation-delay: .14s; }
+  #ghost.talk .voice rect:nth-child(4) { animation-delay: .05s; }
+  #ghost.talk .voice rect:nth-child(5) { animation-delay: .11s; }
+  #ghost.angry .eyes ellipse { fill: var(--bad); filter: drop-shadow(0 0 6px var(--bad)); }
+  #ghost.angry .voice rect { fill: var(--bad); }
+  #ghost.angry svg { filter: drop-shadow(0 0 18px rgba(255, 90, 77, .3)); }
+  @keyframes sway { 0%, 100% { transform: translateY(0) rotate(-1.6deg); } 50% { transform: translateY(2px) rotate(1.8deg); } }
+  @keyframes talk { 0%, 100% { transform: translateY(0) rotate(-2.5deg); } 50% { transform: translateY(5px) rotate(2deg); } }
+  @keyframes bars { to { transform: scaleY(2.1); } }
+  @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
+  @keyframes flick { 0%, 91%, 100% { opacity: 1; } 92% { opacity: .35; } 93% { opacity: 1; } 95% { opacity: .55; } 96% { opacity: 1; } }
+
+  #term { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; word-break: break-word; }
+  #term .l { white-space: pre-wrap; }
+  #term .dim { color: var(--dim); }
+  #term .warn { color: var(--warn); }
+  #term .bad { color: var(--bad); }
+  #term .big { font: 700 clamp(20px, 5.6vw, 28px)/1.25 var(--display); color: #fff; margin: 10px 0 4px; }
+  #term .row { display: grid; grid-template-columns: 9.5em 1fr; gap: 10px; border-bottom: 1px dashed var(--line); padding: 3px 0; }
+  #term .row span:first-child { color: var(--dim); }
+  #term .row span:last-child { color: #fff; font-weight: 500; }
+  #term .bar { height: 8px; background: #0d2417; border-radius: 4px; overflow: hidden; margin: 4px 0; }
+  #term .bar i { display: block; height: 100%; width: 0; background: var(--term); }
+
+  #cam { flex: none; }
+  #cam[hidden] { display: none !important; }
+  #cam .frame { position: relative; height: clamp(150px, 26vh, 240px); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #000; }
+  #cam video, #cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  #cam canvas { filter: grayscale(1) contrast(1.25) brightness(.9); }
+  #cam .fake { position: absolute; inset: 0; display: grid; place-items: center; }
+  #cam .fake[hidden] { display: none; }
+  #cam .fake svg { height: 80%; stroke: var(--dim); fill: none; stroke-width: 2; }
+  #cam .tint { position: absolute; inset: 0; background: rgba(77, 255, 136, .10); pointer-events: none; }
+  #cam .box { position: absolute; left: 28%; right: 28%; top: 10%; bottom: 10%; border: 2px dashed var(--term); border-radius: 10px; opacity: .8; animation: pulse 1s ease-in-out infinite alternate; }
+  #cam.hit .box { border-style: solid; border-color: var(--bad); animation: none; opacity: 1; }
+  #cam .sweep { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--term); box-shadow: 0 0 14px var(--term); opacity: 0; }
+  #cam.scanning .sweep { opacity: 1; animation: vsweep 1.2s ease-in-out infinite alternate; }
+  #cam .fl { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  #cam.flash .fl { animation: flashA .5s ease-out; }
+  #cam .lbl { position: absolute; left: 8px; bottom: 8px; font: 700 11px var(--mono); letter-spacing: .1em; background: rgba(0, 0, 0, .65); color: var(--term); padding: 4px 8px; border-radius: 4px; }
+  #cam.hit .lbl { color: var(--bad); }
+  @keyframes vsweep { to { top: calc(100% - 3px); } }
+  @keyframes pulse { to { transform: scale(1.03); opacity: 1; } }
+  @keyframes flashA { 0% { opacity: .95; } 100% { opacity: 0; } }
+
+  #nameForm { display: flex; gap: 8px; flex-wrap: wrap; }
+  #nameForm label { width: 100%; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  #nameForm input { flex: 1 1 180px; min-width: 0; font: 500 16px var(--mono); color: #fff; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
+  button.go { font: 700 14px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: #02130a; background: var(--term); border: 0; border-radius: 6px; padding: 12px 18px; cursor: pointer; }
+  #nameForm input:focus-visible, button:focus-visible { outline: 2px solid var(--term); outline-offset: 2px; }
+
+  #ask { display: flex; gap: 12px; flex: none; }
+  #ask[hidden] { display: none !important; }
+  #ask .go { flex: 1; font-size: 20px; padding: 16px; }
+  #ask .no { background: var(--bad); color: #1a0402; }
+  #fp { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px 0 2px; }
+  #fp[hidden], #nameForm[hidden], #timer[hidden], #locked[hidden], #reveal:not(.on) { display: none !important; }
+  .pad { position: relative; width: 150px; height: 150px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel); display: grid; place-items: center; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; --p: 0; }
+  .pad::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; background: conic-gradient(var(--term) calc(var(--p) * 1%), transparent 0); -webkit-mask: radial-gradient(circle, transparent 66%, #000 68%); mask: radial-gradient(circle, transparent 66%, #000 68%); }
+  .pad svg { width: 92px; height: 92px; stroke: var(--dim); fill: none; stroke-width: 3; stroke-linecap: round; }
+  .pad.hold svg { stroke: var(--term); }
+  .pad .scan { position: absolute; left: 14px; right: 14px; height: 3px; background: var(--term); box-shadow: 0 0 12px var(--term); top: 14px; opacity: 0; border-radius: 2px; }
+  .pad.hold .scan { opacity: 1; animation: sweep 1s ease-in-out infinite alternate; }
+  @keyframes sweep { to { top: calc(100% - 17px); } }
+  #fp p { margin: 0; font-size: 13px; color: var(--dim); text-align: center; }
+
+  #timer { border: 1px solid var(--bad); background: #1a0806; border-radius: 8px; padding: 12px 16px; text-align: center; }
+  #timer .t { font: 800 clamp(40px, 13vw, 64px)/1 var(--display); color: var(--bad); font-variant-numeric: tabular-nums; }
+  #timer .s { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #d98b84; }
+
+  #locked { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 24px; }
+  #locked h2 { margin: 0; font: 800 clamp(40px, 14vw, 96px)/.95 var(--display); color: var(--bad); letter-spacing: -.03em; }
+  #locked .t { font: 700 clamp(30px, 10vw, 56px)/1 var(--mono); color: #fff; font-variant-numeric: tabular-nums; }
+  #locked p { margin: 0; color: #a56a65; font-size: 14px; max-width: 36ch; }
+
+  #watch { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; text-align: center; }
+  #watch[hidden] { display: none !important; }
+  #watch svg { width: min(80vw, 420px); height: auto; }
+  #watch .we ellipse { fill: var(--term); filter: drop-shadow(0 0 10px var(--term)); transform-origin: center; transform-box: fill-box; animation: wblink 6s infinite; }
+  #watch .wc { font: 700 13px var(--mono); letter-spacing: .35em; color: var(--dim); }
+  #watch .wt { font: 400 12px var(--mono); letter-spacing: .1em; color: #2b5a3c; }
+  @keyframes wblink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.05); } }
+  #hot { position: fixed; top: 0; left: 0; width: 72px; height: 72px; z-index: 100; background: transparent; border: 0; padding: 0; }
+  #reveal { position: fixed; inset: 0; z-index: 200; background: #e8d7a3; color: #17140a; flex-direction: column; align-items: flex-start; justify-content: center; gap: 18px; padding: 24px max(24px, env(safe-area-inset-left, 0px)); font-family: var(--display); }
+  #reveal.on { display: flex; }
+  #reveal h2 { margin: 0; font-weight: 800; font-size: clamp(60px, 22vw, 150px); line-height: .9; letter-spacing: -.04em; }
+  #reveal p { margin: 0; font: 500 18px/1.4 var(--display); max-width: 30ch; }
+  #reveal button { font: 700 15px var(--display); padding: 14px 22px; border-radius: 6px; border: 2px solid #17140a; background: #17140a; color: #e8d7a3; cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) { .pad.hold .scan { animation-duration: 3s; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">XAKER PRO X <b>ZENTROX</b></div>
+    <div class="ver">v7.3 // nishon qidiruv tizimi</div>
+  </header>
+
+  <div id="ghost" hidden aria-hidden="true">
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 200 C6 152 46 132 78 126 L122 126 C154 132 194 152 194 200 Z" fill="#070a08" stroke="#173a25" stroke-width="2"/>
+      <g id="ghostHead">
+        <path d="M100 6 C58 6 36 50 36 92 C36 118 52 134 68 140 L132 140 C148 134 164 118 164 92 C164 50 142 6 100 6 Z" fill="#050806" stroke="#1f5a35" stroke-width="2.5"/>
+        <path d="M100 18 C68 18 52 54 52 92 C52 112 64 124 76 130 L124 130 C136 124 148 112 148 92 C148 54 132 18 100 18 Z" fill="#0b120d"/>
+        <ellipse cx="100" cy="90" rx="34" ry="40" fill="#000"/>
+        <g class="eyes">
+          <ellipse cx="87" cy="80" rx="5.5" ry="3.2"/>
+          <ellipse cx="113" cy="80" rx="5.5" ry="3.2"/>
+        </g>
+        <g class="voice">
+          <rect x="86" y="104" width="4" height="12" rx="2"/>
+          <rect x="93" y="104" width="4" height="12" rx="2"/>
+          <rect x="100" y="104" width="4" height="12" rx="2"/>
+          <rect x="107" y="104" width="4" height="12" rx="2"/>
+          <rect x="114" y="104" width="4" height="12" rx="2"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <div id="term" aria-live="polite"></div>
+
+  <div id="cam" hidden aria-hidden="true">
+    <div class="frame">
+      <video id="camV" autoplay playsinline muted hidden></video>
+      <canvas id="camC" hidden></canvas>
+      <div class="fake" id="camFake">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="46" r="24"/><path d="M14 118 C14 86 36 76 60 76 C84 76 106 86 106 118"/></svg>
+      </div>
+      <div class="tint"></div>
+      <div class="sweep"></div>
+      <div class="box"></div>
+      <div class="fl"></div>
+      <div class="lbl" id="camLbl">YUZ SKANERLANMOQDA</div>
+    </div>
+  </div>
+
+  <div id="nameForm">
+    <label for="nameIn">Nishon ismini kiriting</label>
+    <input id="nameIn" type="text" maxlength="30" placeholder="ism..." autocapitalize="words" spellcheck="false" autocomplete="off" enterkeyhint="search">
+    <button class="go" id="goBtn" type="button">Qidirish</button>
+  </div>
+
+  <div id="fp" hidden>
+    <div class="pad" id="pad" role="button" aria-label="Barmoq izi uchun bosib turing">
+      <div class="scan"></div>
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M22 40 C22 22 36 12 50 12 C64 12 78 22 78 40"/>
+        <path d="M14 56 C12 30 30 4 52 4 C74 4 90 24 86 52"/>
+        <path d="M32 48 C32 36 40 26 50 26 C60 26 68 36 66 50 C65 62 62 72 58 84"/>
+        <path d="M42 56 C42 46 46 38 50 38 C56 38 58 46 56 58 C55 68 52 78 50 92"/>
+        <path d="M22 54 C22 66 24 78 30 90"/>
+        <path d="M78 58 C78 70 74 82 70 92"/>
+        <path d="M50 50 C50 62 48 72 44 82"/>
+      </svg>
+    </div>
+    <p>Barmog'ingizni bosib turing</p>
+  </div>
+
+  <div id="ask" hidden>
+    <button class="go yes" id="askYes" type="button">Ha</button>
+    <button class="go no" id="askNo" type="button">Yo'q</button>
+  </div>
+
+  <div id="timer" hidden>
+    <div class="s">Telefon 48 soatga qulflanadi</div>
+    <div class="t" id="timerT">05:00</div>
+  </div>
+</div>
+
+<div id="locked" hidden>
+  <h2>QULFLANDI</h2>
+  <div class="t" id="lockT">48:00:00</div>
+  <p>Qurilma xavfsizlik rejimiga o'tdi. Qolgan vaqt tugaguncha ochib bo'lmaydi.</p>
+</div>
+
+<div id="watch" hidden aria-hidden="true">
+  <svg viewBox="0 0 200 60" aria-hidden="true">
+    <g class="we"><ellipse cx="62" cy="30" rx="16" ry="8"/><ellipse cx="138" cy="30" rx="16" ry="8"/></g>
+  </svg>
+  <div class="wc">KUZATILMOQDA</div>
+  <div class="wt">kuzatuv muddati: 30 kun</div>
+</div>
+
+<button id="hot" aria-label="Chiqish uchun 3 marta bosing" tabindex="-1"></button>
+
+<div id="reveal" role="dialog" aria-label="Hazil ochildi">
+  <h2>Hazil!</h2>
+  <p>Telefoning buzilmagan va hech narsa qulflanmadi. Hammasi hazil edi. Kamera tasviri hech qayerga saqlanmadi va yuborilmadi.</p>
+  <button id="again">Qaytadan boshlash</button>
+</div>
+
+<script>
+(function () {
+  var term = document.getElementById('term');
+  var form = document.getElementById('nameForm');
+  var nameIn = document.getElementById('nameIn');
+  var fp = document.getElementById('fp');
+  var pad = document.getElementById('pad');
+  var timerBox = document.getElementById('timer');
+  var timerT = document.getElementById('timerT');
+  var locked = document.getElementById('locked');
+  var lockT = document.getElementById('lockT');
+  var reveal = document.getElementById('reveal');
+
+  var runId = 0;
+  var timers = [];
+  var raf = 0;
+
+  function later(fn, ms) { var t = setTimeout(fn, ms); timers.push(t); return t; }
+  function wait(ms, id) {
+    return new Promise(function (res) {
+      later(function () { if (id === runId) res(); }, ms);
+    });
+  }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+  function addLine(text, cls) {
+    var el = document.createElement('div');
+    el.className = 'l' + (cls ? ' ' + cls : '');
+    el.textContent = text;
+    term.appendChild(el);
+    term.scrollTop = term.scrollHeight;
+    return el;
+  }
+  function addRow(k, v) {
+    var el = document.createElement('div');
+    el.className = 'row';
+    var a = document.createElement('span'); a.textContent = k;
+    var b = document.createElement('span'); b.textContent = v;
+    el.appendChild(a); el.appendChild(b);
+    term.appendChild(el);
+    term.scrollTop = term.scrollHeight;
+  }
+  var ghost = document.getElementById('ghost');
+
+  /* Xaker ovozi: past, buzilgan g'irillash + tushunib bo'lmaydigan yunoncha iboralar */
+  var actx = null, master = null, bp = null, oscA = null, oscB = null, wobble = 0, talkDepth = 0, greekIdx = 0, deep = false;
+  var greek = ['Σε βλέπω.', 'Δεν μπορείς να φύγεις.', 'Είμαι ήδη μέσα στο τηλέφωνό σου.', 'Σε παρακολουθώ.', 'Είναι πολύ αργά.', 'Θα σε βρω.', 'Μη με κοιτάς.', 'Το τέλος είναι κοντά.'];
+  function initAudio() {
+    try { if (window.speechSynthesis) window.speechSynthesis.getVoices(); } catch (e) {}
+    if (actx) { try { if (actx.state === 'suspended') actx.resume(); } catch (e) {} return; }
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      actx = new AC();
+      var curve = new Float32Array(1024);
+      for (var i = 0; i < 1024; i++) { var x = i / 512 - 1; curve[i] = Math.tanh(x * 14); }
+      var dist = actx.createWaveShaper(); dist.curve = curve;
+      bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 3; bp.frequency.value = 500;
+      master = actx.createGain(); master.gain.value = 0;
+      oscA = actx.createOscillator(); oscA.type = 'sawtooth'; oscA.frequency.value = 56;
+      oscB = actx.createOscillator(); oscB.type = 'sawtooth'; oscB.frequency.value = 59.5;
+      var sub = actx.createOscillator(); sub.type = 'square'; sub.frequency.value = 28;
+      var subG = actx.createGain(); subG.gain.value = .5;
+      oscA.connect(dist); oscB.connect(dist); sub.connect(subG); subG.connect(dist);
+      dist.connect(bp); bp.connect(master); master.connect(actx.destination);
+      oscA.start(); oscB.start(); sub.start();
+    } catch (e) { actx = null; }
+  }
+  function voiceStart() {
+    if (actx && master) {
+      try { if (actx.state === 'suspended') actx.resume(); } catch (e) {}
+      master.gain.setTargetAtTime(deep ? .5 : .32, actx.currentTime, .05);
+      if (!wobble) {
+        wobble = setInterval(function () {
+          var t = actx.currentTime;
+          bp.frequency.setTargetAtTime(deep ? 120 + Math.random() * 800 : 280 + Math.random() * 1500, t, .03);
+          var f = deep ? 24 + Math.random() * 18 : 44 + Math.random() * 32;
+          oscA.frequency.setTargetAtTime(f, t, .04);
+          oscB.frequency.setTargetAtTime(f * 1.06, t, .04);
+        }, deep ? 170 : 130);
+      }
+    }
+    try {
+      if (window.speechSynthesis && window.SpeechSynthesisUtterance) {
+        window.speechSynthesis.cancel();
+        var u = new SpeechSynthesisUtterance(greek[greekIdx++ % greek.length]);
+        u.lang = 'el-GR'; u.pitch = 0; u.rate = deep ? .4 : .55; u.volume = 1;
+        u.onend = function () { if (talkDepth > 0) voiceSpeakAgain(); };
+        window.speechSynthesis.speak(u);
+      }
+    } catch (e) {}
+  }
+  function voiceSpeakAgain() {
+    try {
+      var u = new SpeechSynthesisUtterance(greek[greekIdx++ % greek.length]);
+      u.lang = 'el-GR'; u.pitch = 0; u.rate = deep ? .4 : .55; u.volume = 1;
+      u.onend = function () { if (talkDepth > 0) voiceSpeakAgain(); };
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function voiceStop() {
+    if (wobble) { clearInterval(wobble); wobble = 0; }
+    if (actx && master) { try { master.gain.setTargetAtTime(0, actx.currentTime, .08); } catch (e) {} }
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+  }
+  function talkOn() {
+    talkDepth++;
+    ghost.classList.add('talk');
+    if (talkDepth === 1) voiceStart();
+  }
+  function talkOff() {
+    talkDepth = Math.max(0, talkDepth - 1);
+    if (talkDepth === 0) { ghost.classList.remove('talk'); voiceStop(); }
+  }
+  function talkReset() {
+    talkDepth = 0;
+    deep = false;
+    ghost.classList.remove('talk');
+    voiceStop();
+  }
+
+  function bump(ms, id) {
+    talkOn();
+    later(function () { if (id === runId) talkOff(); }, ms);
+  }
+  async function typeLine(text, cls, speed, id) {
+    var el = addLine('', cls);
+    talkOn();
+    for (var i = 0; i < text.length; i++) {
+      if (id !== runId) return;
+      el.textContent += text[i];
+      term.scrollTop = term.scrollHeight;
+      await wait(speed, id);
+    }
+    talkOff();
+  }
+  async function progressBar(ms, id) {
+    var bar = document.createElement('div');
+    bar.className = 'bar';
+    var i = document.createElement('i');
+    bar.appendChild(i);
+    term.appendChild(bar);
+    term.scrollTop = term.scrollHeight;
+    var steps = 20;
+    for (var s = 1; s <= steps; s++) {
+      if (id !== runId) return;
+      i.style.width = (s * 100 / steps) + '%';
+      await wait(ms / steps, id);
+    }
+  }
+
+  function isShox(raw) {
+    var n = raw.toLowerCase().replace(/[^a-z]/g, '');
+    return /^sho[xh]ja[hx]on$/.test(n);
+  }
+  function ageFrom(y, m, d) {
+    var now = new Date();
+    var a = now.getFullYear() - y;
+    if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) a--;
+    return a;
+  }
+
+  function holdFingerprint(id) {
+    return new Promise(function (resolve) {
+      var start = 0;
+      var HOLD = 2600;
+      function setP(p) { pad.style.setProperty('--p', p); }
+      function tick(ts) {
+        if (id !== runId) return;
+        if (!start) start = ts;
+        var p = Math.min(100, (ts - start) / HOLD * 100);
+        setP(p);
+        if (p >= 100) {
+          pad.classList.remove('hold');
+          cleanup();
+          resolve();
+          return;
+        }
+        raf = requestAnimationFrame(tick);
+      }
+      function down(e) {
+        e.preventDefault();
+        if (start || id !== runId) return;
+        pad.classList.add('hold');
+        raf = requestAnimationFrame(tick);
+      }
+      function up() {
+        if (!pad.classList.contains('hold')) return;
+        cancelAnimationFrame(raf);
+        start = 0;
+        setP(0);
+        pad.classList.remove('hold');
+        addLine('[XATO] barmoq izi uzildi. Qayta bosib turing.', 'warn');
+      }
+      function cleanup() {
+        pad.removeEventListener('pointerdown', down);
+        pad.removeEventListener('pointerup', up);
+        pad.removeEventListener('pointercancel', up);
+        pad.removeEventListener('pointerleave', up);
+      }
+      pad.addEventListener('pointerdown', down);
+      pad.addEventListener('pointerup', up);
+      pad.addEventListener('pointercancel', up);
+      pad.addEventListener('pointerleave', up);
+    });
+  }
+
+  var camStream = null;
+  function stopCam() {
+    try { if (camStream) camStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    camStream = null;
+  }
+  /* Yuz skaneri: kamera tasviri faqat ekranda vaqtincha turadi, hech qayerga saqlanmaydi va yuborilmaydi. */
+  async function faceScan(id) {
+    var cam = document.getElementById('cam');
+    var v = document.getElementById('camV');
+    var c = document.getElementById('camC');
+    var fake = document.getElementById('camFake');
+    var lbl = document.getElementById('camLbl');
+    cam.className = '';
+    cam.hidden = false;
+    v.hidden = true; c.hidden = true; fake.hidden = false;
+    lbl.textContent = 'KAMERA ULANMOQDA...';
+    var stream = null;
+    var p = null;
+    try { p = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }); } catch (e) { p = null; }
+    if (p) {
+      stream = await Promise.race([
+        p.catch(function () { return null; }),
+        new Promise(function (res) { setTimeout(function () { res(null); }, 9000); })
+      ]);
+      if (!stream) p.then(function (s) { s.getTracks().forEach(function (t) { t.stop(); }); }).catch(function () {});
+    }
+    if (id !== runId) { if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+    camStream = stream;
+    if (stream) {
+      v.srcObject = stream;
+      try { await v.play(); } catch (e) {}
+      v.hidden = false; fake.hidden = true;
+    }
+    lbl.textContent = 'YUZ SKANERLANMOQDA';
+    cam.classList.add('scanning');
+    await wait(3200, id);
+    if (id !== runId) return;
+    if (stream && v.videoWidth) {
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext('2d').drawImage(v, 0, 0);
+      v.hidden = true; c.hidden = false;
+    }
+    stopCam();
+    cam.classList.remove('scanning');
+    cam.classList.add('flash', 'hit');
+    lbl.textContent = 'YUZ TOPILDI // 98.4%';
+    bump(900, id);
+    await wait(1600, id);
+  }
+
+  function askOk(id) {
+    return new Promise(function (resolve) {
+      var box = document.getElementById('ask');
+      var yes = document.getElementById('askYes');
+      var no = document.getElementById('askNo');
+      yes.textContent = 'Tushundim';
+      no.hidden = true;
+      box.hidden = false;
+      yes.onclick = function () {
+        if (id !== runId) return;
+        box.hidden = true;
+        yes.textContent = 'Ha';
+        no.hidden = false;
+        resolve();
+      };
+    });
+  }
+
+  function askChoice(id) {
+    return new Promise(function (resolve) {
+      var box = document.getElementById('ask');
+      box.hidden = false;
+      function done(v) { if (id !== runId) return; box.hidden = true; resolve(v); }
+      document.getElementById('askYes').onclick = function () { done('ha'); };
+      document.getElementById('askNo').onclick = function () { done('yoq'); };
+    });
+  }
+
+  async function flowShox(id) {
+    addLine('> nishon: SHOXJAHON', 'dim');
+    ghost.hidden = false;
+    await wait(500, id);
+    addLine('[ZENTROX] ma\'lumotlar bazasiga ulanilmoqda...');
+    await wait(900, id);
+    addLine('[ZENTROX] 14 ta mos yozuv topildi');
+    await wait(700, id);
+    addLine('[ZENTROX] nishon: SHOXJAHON');
+    await wait(700, id);
+    addLine('[ZENTROX] shaxsni tasdiqlash uchun barmoq izi kerak', 'warn');
+    fp.hidden = false;
+    pad.style.setProperty('--p', 0);
+    await holdFingerprint(id);
+    if (id !== runId) return;
+    fp.hidden = true;
+    addLine('[SCAN] barmoq izi o\'qilmoqda...');
+    await progressBar(2400, id);
+    addLine('[OK] moslik: 99.7%');
+    await wait(900, id);
+    await typeLine('Ufu, bu qo\'ling bilan nimalar qilgansan?', 'big', 38, id);
+    await wait(1100, id);
+    addLine('[ZENTROX] shaxsiy ma\'lumotlar yuklanmoqda...', 'dim');
+    await progressBar(1800, id);
+
+    var age = ageFrom(2010, 6, 11);
+    var rows = [
+      ['Ism', 'Shoxjahon'],
+      ['Tug\'ilgan sana', '2010-yil 11-iyun (' + age + ' yosh)'],
+      ['Onasi', 'Soxiba'],
+      ['Otasi', 'Shermamat'],
+      ['Akasi', 'Dilmurod (laqabi: Bolta)'],
+      ['Opasi', 'Sevinch'],
+      ['Yoqtirgani', 'anime ko\'rish'],
+      ['Manzil', 'Jizzax viloyati, G\'agarin shahri'],
+      ['O\'qishi', 'kollej']
+    ];
+    for (var i = 0; i < rows.length; i++) {
+      addRow(rows[i][0], rows[i][1]);
+      bump(500, id);
+      await wait(650, id);
+    }
+    await wait(700, id);
+    await typeLine('Kollejda o\'qiysan, yapon tilini o\'rganyapsan.', '', 30, id);
+    await wait(900, id);
+    await typeLine('Telefoning ancha oldin buzilgan. Agar ishlayotgan bo\'lganingda, Google tarixingni onangning telefoniga yuborar edim.', 'warn', 28, id);
+    await wait(1400, id);
+    await typeLine('Sen juda dangasasan, Shoxjahon.', 'warn', 40, id);
+    await wait(700, id);
+    await typeLine('Faqat Mobile Legends o\'ynaysan. Hozir emas... lekin o\'ynaysan, to\'g\'rimi?', 'warn', 34, id);
+    await wait(900, id);
+    await typeLine('Ish qilmaysan. Onangning aytganini qilmaysan. Juda erinchoqsan.', 'warn', 34, id);
+    await wait(1200, id);
+    ghost.classList.add('angry');
+    await typeLine('Men seni ancha vaqtdan beri kuzatib turibman, Shoxjahon.', 'bad', 34, id);
+    await wait(900, id);
+    addLine('[ZENTROX] old kamera ulanmoqda...', 'warn');
+    await faceScan(id);
+    if (id !== runId) return;
+    await typeLine('Mana bu sening yuzing. Endi u mening bazamda.', 'big', 40, id);
+    await wait(900, id);
+    await typeLine('Telefonni o\'chirishga urinma. Hammasi allaqachon nusxalangan.', 'bad', 30, id);
+    await wait(1200, id);
+    await typeLine('Ekranga qara. Men hali ketganim yo\'q...', 'bad', 45, id);
+    await wait(1200, id);
+    await typeLine('Hammasini bilaman: nimalar o\'ynaganingni, kimlar bilan yozishganingni.', 'bad', 32, id);
+    await wait(1200, id);
+    document.getElementById('cam').hidden = true;
+    await typeLine('Oxirgi savol: endi onangning aytganini qilasanmi?', 'big', 38, id);
+    var ans = await askChoice(id);
+    if (id !== runId) return;
+    addLine('> javob: ' + (ans === 'ha' ? 'HA' : 'YO\'Q'), 'dim');
+    await wait(900, id);
+
+    if (ans === 'ha') {
+      ghost.classList.remove('angry');
+      await typeLine('Yaxshi. Onangning aytganlarini qil va yaxshi yo\'lga o\'zgar.', 'big', 42, id);
+      await wait(1100, id);
+      addLine('[ZENTROX] qulf bekor qilinmoqda...', 'dim');
+      await progressBar(2200, id);
+      addLine('[OK] Qulf bekor qilindi. Bu safar kechirildi.');
+      await wait(1100, id);
+      await typeLine('Dangasalikni tashla. Onangga yordam ber. Dars qil.', '', 38, id);
+      await wait(1100, id);
+      await typeLine('Men esa seni kuzatib turaman...', 'warn', 60, id);
+      await wait(900, id);
+      await typeLine('Tushundingmi?', 'big', 70, id);
+      await askOk(id);
+      if (id !== runId) return;
+      addLine('> javob: TUSHUNDIM', 'dim');
+      await wait(900, id);
+      await typeLine('Yaxshi. Hozircha ketaman. Lekin men har doim shu yerdaman.', 'warn', 55, id);
+      await wait(2200, id);
+      if (id !== runId) return;
+      document.getElementById('watch').hidden = false;
+      return;
+    }
+
+    deep = true;
+    ghost.classList.add('angry');
+    await typeLine('Demak, o\'zgarishni xohlamaysan.', 'bad', 55, id);
+    await wait(1000, id);
+    await typeLine('Sen onangga gap qaytarasan. Men hammasini eshitganman.', 'bad', 50, id);
+    await wait(1000, id);
+    await typeLine('Unda men seni o\'zim tuzataman.', 'bad', 55, id);
+    await wait(1100, id);
+    addLine('[ZENTROX] onangning Redmi 14C telefoniga ulanilmoqda...', 'bad');
+    await progressBar(2400, id);
+    await typeLine('Onangning telefoni endi mening qo\'limda.', 'bad', 55, id);
+    await wait(1000, id);
+    addLine('[ZENTROX] sening Samsung A31 telefoningga ulanilmoqda...', 'bad');
+    await progressBar(1800, id);
+    await typeLine('Telefoning buzilgan, lekin men undan hech qachon ketmayman.', 'bad', 50, id);
+    await wait(1100, id);
+    addLine('[ZENTROX] Mobile Legends o\'chirilmoqda...', 'bad');
+    await progressBar(2600, id);
+    addLine('[ZENTROX] barcha o\'yinlar va ilovalar o\'chirilmoqda...', 'bad');
+    await progressBar(2600, id);
+    await wait(900, id);
+    await typeLine('Faqat telefonda o\'ynarding. Endi o\'ynaydigan hech narsang qolmadi.', 'bad', 50, id);
+    await wait(1200, id);
+    await typeLine('Endi qaytib bo\'lmaydi, Shoxjahon.', 'big', 70, id);
+    await wait(1200, id);
+    bump(1800, id);
+    addLine('[ZENTROX] 5:00 daqiqadan keyin telefon 48 soatga qulflanadi.', 'bad');
+
+    timerBox.hidden = false;
+    var left = 300;
+    function showT() { timerT.textContent = pad2(Math.floor(left / 60)) + ':' + pad2(left % 60); }
+    showT();
+    while (left > 0) {
+      await wait(1000, id);
+      if (id !== runId) return;
+      left--;
+      showT();
+    }
+    timerBox.hidden = true;
+    showLock(id);
+  }
+
+  function showLock(id) {
+    locked.hidden = false;
+    var end = Date.now() + 48 * 3600 * 1000;
+    function upd() {
+      if (id !== runId) return;
+      var s = Math.max(0, Math.floor((end - Date.now()) / 1000));
+      lockT.textContent = pad2(Math.floor(s / 3600)) + ':' + pad2(Math.floor(s % 3600 / 60)) + ':' + pad2(s % 60);
+      later(upd, 1000);
+    }
+    upd();
+  }
+
+  async function flowOther(name, id) {
+    addLine('> nishon: ' + name.toUpperCase(), 'dim');
+    await wait(500, id);
+    addLine('[ZENTROX] bazaga ulanilmoqda...');
+    await progressBar(1500, id);
+    addLine('[XATO] "' + name + '" bazada topilmadi. Boshqa ism kiriting.', 'bad');
+    form.hidden = false;
+    nameIn.value = '';
+    nameIn.focus();
+  }
+
+  function resetUI() {
+    runId++;
+    timers.forEach(function (t) { clearTimeout(t); });
+    timers = [];
+    cancelAnimationFrame(raf);
+    term.textContent = '';
+    ghost.hidden = true;
+    ghost.classList.remove('angry');
+    talkReset();
+    document.getElementById('ask').hidden = true;
+    document.getElementById('askYes').textContent = 'Ha';
+    document.getElementById('askNo').hidden = false;
+    document.getElementById('watch').hidden = true;
+    stopCam();
+    var camEl = document.getElementById('cam');
+    camEl.hidden = true;
+    camEl.className = '';
+    var camCv = document.getElementById('camC');
+    camCv.hidden = true;
+    camCv.width = 1; camCv.height = 1;
+    fp.hidden = true;
+    timerBox.hidden = true;
+    locked.hidden = true;
+    pad.classList.remove('hold');
+    pad.style.setProperty('--p', 0);
+    form.hidden = false;
+    nameIn.value = '';
+    addLine('ZENTROX v7.3 ishga tushdi.', 'dim');
+    addLine('Nishon ismini kiriting va qidiruvni boshlang.');
+  }
+
+  function submitName() {
+    var name = nameIn.value.trim();
+    if (!name) { nameIn.focus(); return; }
+    initAudio();
+    form.hidden = true;
+    var id = ++runId;
+    if (isShox(name)) flowShox(id); else flowOther(name, id);
+  }
+  document.getElementById('goBtn').addEventListener('click', submitName);
+  nameIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitName(); } });
+
+  /* Chiqish: yuqori chap burchakni 3 marta tez bosish yoki Esc */
+  var taps = [];
+  function exitPrank() {
+    resetUI();
+    reveal.classList.add('on');
+  }
+  document.getElementById('hot').addEventListener('click', function () {
+    var now = Date.now();
+    taps = taps.filter(function (t) { return now - t < 1500; });
+    taps.push(now);
+    if (taps.length >= 3) { taps = []; exitPrank(); }
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') exitPrank(); });
+  document.getElementById('again').addEventListener('click', function () { reveal.classList.remove('on'); nameIn.focus(); });
+
+  resetUI();
+})();
+</script>
+</body>
+</html>
